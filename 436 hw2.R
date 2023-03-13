@@ -1,0 +1,127 @@
+
+library(shiny)
+library(tidyverse)
+library(rio)
+library(ggthemes)
+library(plotly)
+
+adult=read.csv("D:\\HW4\\adult.csv\\adult.csv")
+head(adult)
+
+barplot <- function(df, x, f) {
+  ggplot(df) +
+    geom_bar(aes(x = !!sym(x), fill = !!sym(f)), stat = "count") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))  
+  # Set the rotation Angle, portrait alignment, and landscape alignment for the X-axis label.
+}
+# Defines a function called "scatter" to generate a stacked scatter plot.
+scatterplot <- function(df, x, y, color, shape){
+  p <- ggplot(df) +
+    geom_point(aes(!!sym(x), !!sym(y), color = !!sym(color), shape = !!sym(shape))) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggplotly(p)  # Convert ggplot2 graphics to interactive graphics
+}
+
+# Application UI Layout
+ui=shinyUI(fluidPage(
+    br(),
+    #  Application title
+    titlePanel("Trend in Demographics and Income"),
+    p("Explore the difference between people who earn less than 50K and more than 50K. You can filter the data by country, then explore various demogrphic information."),
+    
+     
+selectInput("Continues", "variable_Continues",choices=c("age","hours_per_week")),
+   
+selectInput("Color", "Points Color",choices=c("education","race","sex")),
+        
+selectInput("Shape", "PointsShape",choices=c("education","sex","race")),
+    checkboxGroupInput("PREDICTION", "prediction", choices = unique(adult$PREDICTION),inline = TRUE),
+    plotlyOutput("scatterplot", height = "700px", width = "100%"),
+    plotlyOutput("Barplot", height = "500px", width = "100%"),
+    dataTableOutput("datatable"),
+    #  Add second fluidRow to control how to plot the continuous variables
+    fluidRow(
+        column(3, 
+               wellPanel(
+                   p("Select a continuous variable and graph type (histogram or boxplot) to view on the right."),
+                  radioButtons("continuous_variable","Continuous",choices=c("age","hours_per_week")),   # add radio buttons for continuous variables
+                   radioButtons("graph_type","Graph",choices=c("histogram","boxplot"))    # add radio buttons for chart type
+               )
+        ),column(9, plotOutput("p1"))  # add plot output
+    ),
+    
+    # TASK 4: Add third fluidRow to control how to plot the categorical variables
+    fluidRow(
+        column(3, 
+               wellPanel(
+                   p("Select a categorical variable to view bar chart on the right. Use the check box to view a stacked bar chart to combine the income levels into one graph. "),
+                   radioButtons("categorical_variable","Category",choices=c("education","workclass","sex")),    # add radio buttons for categorical variables
+                   checkboxInput("is_stacked","Stack Bar",value=FALSE)     # add check box input for stacked bar chart option
+               )
+        ),
+        column(9, plotOutput("p2"))  # add plot output
+    )
+)
+)
+
+
+
+
+# Define server logic
+server=function(input, output,session) {
+    adult=read.csv("D:\\HW4\\adult.csv\\adult.csv")               # Read in data
+    names(adult)=tolower(names(adult))      # Convert column names to lowercase for convenience 
+    df_country <- reactive({
+        adult %>% filter(prediction %in% input$prediction)
+    })
+    #scatterplot,barplot
+    output$scatterplot <- renderPlotly({
+    scatterplot(adult, "prediction", input$Continues, input$Color, input$Shape)
+  }) 
+    output$Barplot <- renderPlotly({
+    Barplot(adult, "prediction", input$Color)
+  })
+    # Create logic to plot histogram or boxplot
+      output$p1 <- renderPlot({
+        if (input$graph_type == "histogram") {
+            # Histogram
+           ggplot(adult, aes_string(x = input$continuous_variable)) +
+                geom_histogram(color="blue",fill="deepskyblue") +  # histogram geom
+                labs(y="Number of People", title=paste("Trend of ", input$continuous_variable)) + # labels
+            facet_wrap(~prediction)+
+              theme_light()
+            }# facet by prediction
+           else{
+          ggplot(adult, aes_string(y = input$continuous_variable)) +
+                geom_boxplot(color="chocolate",fill="darkgoldenrod1") +  # boxplot geom
+                coord_flip() +  # flip coordinates
+                labs(x="Number of People", title=paste("Boxplot of",input$continuous_variable)) +  # labels
+                facet_wrap(~prediction)+    # facet by prediction
+                theme_light()
+        }
+        
+    })
+    
+    # TCreate logic to plot faceted bar chart or stacked bar chart
+    output$p2 <- renderPlot({
+        # Bar chart
+        p <- ggplot(adult, aes_string(x =input$categorical_variable)) +
+            labs(y="Number of People",title=(paste("Trend of",input$categorical_variable))) +  # labels
+            theme_light()+
+            theme(axis.text.x=element_text(angle=45),legend.position="bottom")    # modify theme to change text angle and legend position
+        
+            
+        if (input$is_stacked) {
+            p + geom_bar(aes(fill=prediction))  # add bar geom and use prediction as fill
+        }
+        else{
+            p + 
+                geom_bar(aes_string(fill=input$categorical_variable)) + # add bar geom and use input$categorical_variables as fill 
+                facet_wrap(~prediction)   # facet by prediction
+        }
+    })
+    
+}
+shinyApp(ui,server)
+
+
