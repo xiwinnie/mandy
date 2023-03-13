@@ -5,9 +5,7 @@ library(rio)
 library(ggthemes)
 library(plotly)
 
-adult=read.csv("D:\\HW4\\adult.csv\\adult.csv")#you may need to download the data at https://www.kaggle.com/datasets/wenruliu/adult-income-datasetfirst because there seems no direct link to read it and it is too large to upload in github
-head(adult)
-
+adult=read.csv("https://uwmadison.app.box.com/file/1163742720037.csv")
 barplot <- function(df, x, f) {
   ggplot(df) +
     geom_bar(aes(x = !!sym(x), fill = !!sym(f)), stat = "count") +
@@ -29,7 +27,7 @@ ui=shinyUI(fluidPage(
     titlePanel("Trend in Demographics and Income"),
     p("Explore the difference between people who earn less than 50K and more than 50K. You can filter the data by country, then explore various demogrphic information."),
     
-     
+    p("First show the influence of different factors to prediction"), 
 selectInput("Continues", "variable_Continues",choices=c("age","hours_per_week")),
    
 selectInput("Color", "Points Color",choices=c("education","race","sex")),
