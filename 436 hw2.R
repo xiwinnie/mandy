@@ -5,7 +5,7 @@ library(rio)
 library(ggthemes)
 library(plotly)
 
-adult=read.csv("D:\\HW4\\adult.csv\\adult.csv")
+adult=read.csv("D:\\HW4\\adult.csv\\adult.csv")#you may need to download the data at https://www.kaggle.com/datasets/wenruliu/adult-income-datasetfirst because there seems no direct link to read it and it is too large to upload in github
 head(adult)
 
 barplot <- function(df, x, f) {
