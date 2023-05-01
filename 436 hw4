@@ -1,0 +1,107 @@
+```{r}
+library(shiny)
+library(ggplot2)
+library(tidyverse)
+library(magrittr)
+library(knitr)
+
+```
+```{r}
+data("iris")
+df <- iris[,-5] # excluding the Species column
+species <- iris$Species
+pca <- prcomp(df)
+kmeans_clustering <- function(df, K) {
+        # Fit the k-means model
+        clustering_fit <- kmeans(df, centers = K)
+        
+        # Cluster assignments
+        cluster_assignments <- clustering_fit$cluster
+        
+        return(list(cluster_assignments, clustering_fit))
+}
+K = 3
+cluster_results <- kmeans_clustering(pca$x[, 1:2], K)
+
+
+df_res <- iris # make a copy of the original data used 
+df_res$cluster = cluster_results[[1]] # add cluster assignment to df_res
+                df_res %>%
+                        group_by(cluster,Species) %>% 
+                        tally() %>%
+        kable()
+df_res %>% group_by(cluster) %>%
+                        summarise(n = n(),
+                                avg.Sepal.Length = mean(Sepal.Length),
+                                avg.Sepal.Width = mean(Sepal.Width),
+                                avg.Petal.Length = mean(Petal.Length),
+                                avg.Petal.Width = mean(Petal.Width)) %>%
+        kable()
+```
+```{r}
+ui <- fluidPage(
+        titlePanel("K-Means Clustering of Iris dataset"),
+        
+        fluidRow(
+                #selecting number of clusters
+                column(2,numericInput("K", "Number of Clusters", 
+                                      value = 4, min = 1, max = 9,
+                                      step = 1)),
+                #clustering assignment displayed in plot
+                column(9,plotOutput("plot"))
+        ),
+        fluidRow(column(3,tableOutput("tab1")),
+                 column(7,tableOutput("tab2"))
+        ),
+        
+        hr()
+        
+        
+)
+server <- function(input, output) {
+        # Cluster the data
+        cluster_results <- reactive({
+                kmeans_clustering(pca$x[, 1:2], input$K)
+        })
+        
+        # Plot results
+        output$plot <- renderPlot({
+                # use PCA result to plot (for the purpose of dimensional reduction)
+                ggplot(data.frame(pca$x[, 1:2]), aes(x = PC1, y = PC2, 
+                                                     color = species, 
+                                                        # color by species
+                                                     shape = factor(cluster_results()[[1]]))) + 
+                                                        # shape representing cluster assignment
+                        geom_point(size = 3, show.legend=TRUE) + 
+                        scale_color_brewer(type = "qual", palette = "Set2") + 
+                                # change color palette
+                        scale_shape_manual("cluster",values = c(1:input$K))+
+                        ggtitle( paste("K-Means Clustering with K =", input$K))+
+                        theme_bw()
+        })
+        
+        df_res <- iris # make a copy of the original data used 
+        
+        # Table1 showing how many species in each cluster
+        output$tab1 <- renderTable({
+                df_res$cluster = cluster_results()[[1]] # add cluster assignment to df_res
+                df_res %>%
+                        group_by(cluster,Species) %>% 
+                        tally() # count how many Species in each cluster
+        })
+        
+        # Table2 showing the summary statistics of each cluster
+        output$tab2 <- renderTable({
+                df_res$cluster = cluster_results()[[1]] # add cluster assignment to df_res
+                df_res %>% group_by(cluster) %>%
+                        summarise(n = n(),
+                                avg.Sepal.Length = mean(Sepal.Length),
+                                avg.Sepal.Width = mean(Sepal.Width),
+                                avg.Petal.Length = mean(Petal.Length),
+                                avg.Petal.Width = mean(Petal.Width))
+
+                })
+
+}
+shinyApp(ui,server)
+```
